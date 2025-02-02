@@ -1,0 +1,13 @@
+// src/index.tsx
+
+import React from 'react';
+import ReactDOM from 'react-dom';
+import App from './App';
+import './index.css'; // eventuale stiluri globale
+
+ReactDOM.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+  document.getElementById('root')
+);
