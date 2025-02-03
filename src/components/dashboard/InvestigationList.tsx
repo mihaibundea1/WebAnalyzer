@@ -1,6 +1,7 @@
 import type React from "react"
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { ScrollArea } from "../ui/scroll-area"
+import { Button } from "../ui/button"
+import { Plus } from "lucide-react"
 
 interface Investigation {
   name: string
@@ -17,28 +18,30 @@ const investigations: Investigation[] = [
 
 const InvestigationList: React.FC = () => {
   return (
-    <Card className="h-full">
-      <CardHeader>
-        <CardTitle>My Investigations</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ScrollArea className="h-[calc(100vh-150px)]">
-          <ul className="space-y-2">
+    <div className="flex flex-col h-full bg-white">
+      <div className="p-4 border-b border-border">
+        <Button variant="outline" className="w-full justify-start gap-2">
+          <Plus className="h-4 w-4" />
+          New Investigation
+        </Button>
+      </div>
+      <ScrollArea className="flex-1 p-4">
+        <div className="mb-4">
+          <h2 className="mb-2 text-sm font-semibold">Recent Investigations</h2>
+          <div className="space-y-1">
             {investigations.map((investigation, index) => (
-              <li
-                key={index}
-                className="flex justify-between items-center p-3 rounded-lg cursor-pointer hover:bg-muted transition-colors duration-200"
-              >
-                <span className="font-medium">{investigation.name}</span>
-                <span className="text-sm text-muted-foreground">{investigation.dateUploaded}</span>
-              </li>
+              <Button key={index} variant="ghost" className="w-full justify-start text-sm font-normal h-auto py-2">
+                <div className="flex flex-col items-start">
+                  <span>{investigation.name}</span>
+                  <span className="text-xs text-muted-foreground">{investigation.dateUploaded}</span>
+                </div>
+              </Button>
             ))}
-          </ul>
-        </ScrollArea>
-      </CardContent>
-    </Card>
+          </div>
+        </div>
+      </ScrollArea>
+    </div>
   )
 }
 
 export default InvestigationList
-
