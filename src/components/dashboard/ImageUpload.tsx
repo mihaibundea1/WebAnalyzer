@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import React from "react"
 import { useState } from "react"
 import { Button } from "../ui/button"
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card"

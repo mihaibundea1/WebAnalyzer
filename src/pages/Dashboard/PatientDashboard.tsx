@@ -1,6 +1,6 @@
 
 
-import type React from "react"
+import React from "react"
 import { useState } from "react"
 import InvestigationList from "../../components/dashboard/InvestigationList"
 import ImageUpload from "../../components/dashboard/ImageUpload"

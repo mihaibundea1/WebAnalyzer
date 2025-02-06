@@ -1,4 +1,4 @@
-import type React from "react"
+import React from "react"
 import { ScrollArea } from "../ui/scroll-area"
 import { Button } from "../ui/button"
 import { Plus } from "lucide-react"
