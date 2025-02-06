@@ -6,7 +6,11 @@ import { Button } from "../ui/button"
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card"
 import { ZoomIn, ZoomOut, RotateCw, Upload } from "lucide-react"
 
-const ImageUpload: React.FC = () => {
+interface ImageUploadProps {
+  onFileUpload: (file: File) => void
+}
+
+const ImageUpload: React.FC<ImageUploadProps> = ({ onFileUpload }) => {
   const [image, setImage] = useState<string | null>(null)
   const [zoom, setZoom] = useState(1)
   const [rotation, setRotation] = useState(0)
@@ -15,19 +19,24 @@ const ImageUpload: React.FC = () => {
     e.preventDefault()
     const file = e.dataTransfer.files[0]
     if (file) {
-      const reader = new FileReader()
-      reader.onload = (event) => setImage(event.target?.result as string)
-      reader.readAsDataURL(file)
+      handleFile(file)
     }
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      const reader = new FileReader()
-      reader.onload = (event) => setImage(event.target?.result as string)
-      reader.readAsDataURL(file)
+      handleFile(file)
     }
+  }
+
+  const handleFile = (file: File) => {
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      setImage(event.target?.result as string)
+      onFileUpload(file)
+    }
+    reader.readAsDataURL(file)
   }
 
   const handleZoomIn = () => setZoom(zoom + 0.1)

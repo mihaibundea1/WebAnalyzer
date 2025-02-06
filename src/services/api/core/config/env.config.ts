@@ -4,7 +4,7 @@ interface AppConfig {
   }
   
   const ENV = {
-    apiUrl: process.env.EXPO_PUBLIC_API_URL,
+    apiUrl: 'localhost:5000',
   } as const;
   
   const getValidatedEnvVar = (obj: Record<string, string | undefined>, key: string) => {

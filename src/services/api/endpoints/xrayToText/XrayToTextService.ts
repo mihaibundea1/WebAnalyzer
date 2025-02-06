@@ -1,37 +1,20 @@
+// XrayToTextService.ts
 import { BaseApiService } from '../../core/BaseApiService';
 import { XRAY_TO_TEXT_ENDPOINTS } from './constants/endpoints';
-import { XrayToTextReport } from './types/xrayToText.types';
 
-/**
- * The XrayToTextService is responsible for calling your Flask endpoints.
- * 
- * Note: JWT integration is provided via getToken() in BaseApiService.
- * For now, JWT usage is commented out in the fetch-based streamReport method.
- */
 export class XrayToTextService extends BaseApiService {
   constructor(getToken?: () => Promise<string | null>) {
     super(XRAY_TO_TEXT_ENDPOINTS.BASE, getToken);
   }
 
-  /**
-   * Calls the generate-report endpoint.
-   * Expects a FormData payload containing the file and indication.
-   */
-  async generateReport(formData: FormData): Promise<XrayToTextReport | null> {
-    const response = await this.post<XrayToTextReport>(XRAY_TO_TEXT_ENDPOINTS.GENERATE_REPORT, formData);
+  async generateReport(formData: FormData): Promise<string | null> {
+    const response = await this.post<string>(
+      XRAY_TO_TEXT_ENDPOINTS.GENERATE_REPORT, 
+      formData
+    );
     return response.data;
   }
 
-  /**
-   * Calls the stream-report endpoint and streams the response.
-   * Since SSE with POST isn’t natively supported by EventSource,
-   * we use fetch and the ReadableStream API to process the stream.
-   *
-   * @param formData - The FormData payload (including the file and optional indication)
-   * @param onMessage - Callback for each chunk received
-   * @param onComplete - Callback when the stream completes
-   * @param onError - Callback when an error occurs
-   */
   async streamReport(
     formData: FormData,
     onMessage: (msg: string) => void,
@@ -39,12 +22,16 @@ export class XrayToTextService extends BaseApiService {
     onError: (err: string) => void
   ): Promise<void> {
     try {
-      const url = `${this.baseEndpoint}${XRAY_TO_TEXT_ENDPOINTS.STREAM_REPORT}`;
+      // const url = `${this.baseEndpoint}${XRAY_TO_TEXT_ENDPOINTS.STREAM_REPORT}`;
+      const url = `localhost:5000/xray_to_text/stream-report`;
 
-      const headers: HeadersInit = {
-        // Uncomment the next line when you want to enable JWT:
-        // 'Authorization': `Bearer ${await this.getToken()}`,
-      };
+      const headers: HeadersInit = {};
+      
+      // Uncomment when JWT is needed
+      // const token = await this.getToken();
+      // if (token) {
+      //   headers.Authorization = `Bearer ${token}`;
+      // }
 
       const response = await fetch(url, {
         method: 'POST',
@@ -52,29 +39,41 @@ export class XrayToTextService extends BaseApiService {
         body: formData,
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       if (!response.body) {
-        onError('No response body');
-        return;
+        throw new Error('No response body');
       }
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder('utf-8');
-      let done = false;
 
-      while (!done) {
-        const { value, done: doneReading } = await reader.read();
-        done = doneReading;
-        if (value) {
-          const chunk = decoder.decode(value, { stream: true });
-          // You might want to parse SSE events from the chunk.
-          // For simplicity, we call onMessage with the raw chunk.
-          onMessage(chunk);
+      while (true) {
+        const { value, done } = await reader.read();
+        
+        if (done) {
+          onComplete();
+          break;
+        }
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === 'stream_complete') {
+              onComplete();
+              break;
+            }
+            onMessage(data);
+          }
         }
       }
-
-      onComplete();
     } catch (err) {
-      onError(String(err));
+      onError(err instanceof Error ? err.message : String(err));
     }
   }
 }

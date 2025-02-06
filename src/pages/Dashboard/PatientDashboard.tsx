@@ -1,5 +1,3 @@
-
-
 import React from "react"
 import { useState } from "react"
 import InvestigationList from "../../components/dashboard/InvestigationList"
@@ -12,6 +10,11 @@ import { cn } from "../../lib/utils"
 const PatientDashboard: React.FC = () => {
   const [showSidebar, setShowSidebar] = useState(false)
   const [showChat, setShowChat] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+
+  const handleFileUpload = (file: File) => {
+    setSelectedFile(file)
+  }
 
   // Function to handle mobile view switches
   const handleMobileToggle = (type: "sidebar" | "chat") => {
@@ -81,8 +84,8 @@ const PatientDashboard: React.FC = () => {
               showSidebar && showChat && "md:max-w-[800px]",
             )}
           >
-            <ImageUpload />
-          </div>
+          <ImageUpload onFileUpload={handleFileUpload} />
+         </div>
         </main>
       </div>
 
@@ -97,7 +100,7 @@ const PatientDashboard: React.FC = () => {
         )}
         data-show={showChat}
       >
-        <ChatBox />
+        <ChatBox selectedFile={selectedFile} />
       </div>
 
       {/* Mobile Overlay */}

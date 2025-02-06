@@ -1,13 +1,13 @@
 "use client"
-
 import React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "../ui/button"
 import { Input } from "../ui/input"
 import { ScrollArea } from "../ui/scroll-area"
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar"
 import { Send, ChevronDown } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu"
+import { useXrayToTextService } from "../../services/api/endpoints/xrayToText/hooks/useXrayToTextService"
 
 const models = [
   { name: "GPT-4", description: "Most capable model, best for complex tasks" },
@@ -15,18 +15,57 @@ const models = [
   { name: "Claude", description: "Specialized in medical analysis" },
 ]
 
-const ChatBox: React.FC = () => {
+interface ChatBoxProps {
+  selectedFile: File | null
+}
+
+interface ChatBoxProps {
+  selectedFile: File | null
+}
+
+const ChatBox: React.FC<ChatBoxProps> = ({ selectedFile }) => {
   const [messages, setMessages] = useState<{ text: string; from: "patient" | "llm" }[]>([])
   const [input, setInput] = useState("")
   const [selectedModel, setSelectedModel] = useState(models[0])
+  const { streamData, loading, streamReport } = useXrayToTextService()
+  const [isStreaming, setIsStreaming] = useState(false)
 
-  const sendMessage = () => {
-    if (input.trim()) {
-      setMessages([...messages, { text: input, from: "patient" }])
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        { text: "I'm sorry, I didn't understand that. Could you please clarify?", from: "llm" },
-      ])
+  useEffect(() => {
+    if (streamData.length > 0) {
+      setMessages(prev => {
+        const lastMessage = prev[prev.length - 1]
+        if (lastMessage?.from === 'llm') {
+          return [...prev.slice(0, -1), { text: lastMessage.text + streamData[streamData.length - 1], from: 'llm' }]
+        }
+        return [...prev, { text: streamData.join(''), from: 'llm' }]
+      })
+    }
+  }, [streamData])
+
+  const sendMessage = async () => {
+    if ((!input.trim() && !selectedFile) || loading) return
+
+    // Add user message
+    setMessages(prev => [...prev, { text: input, from: "patient" }])
+    
+    // Create form data
+    const formData = new FormData()
+    if (selectedFile) {
+      formData.append('file', selectedFile)
+    }
+    formData.append('indication', input)
+
+    // Add initial LLM message
+    setMessages(prev => [...prev, { text: '', from: 'llm' }])
+
+    try {
+      setIsStreaming(true)
+      await streamReport(formData)
+    } catch (error) {
+      console.error('Stream error:', error)
+      setMessages(prev => [...prev.slice(0, -1), { text: "Error generating response", from: 'llm' }])
+    } finally {
+      setIsStreaming(false)
       setInput("")
     }
   }
