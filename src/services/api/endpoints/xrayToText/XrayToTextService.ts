@@ -19,24 +19,15 @@ export class XrayToTextService extends BaseApiService {
     formData: FormData,
     onMessage: (msg: string) => void,
     onComplete: () => void,
-    onError: (err: string) => void
+    onError: (err: string) => void,
+    abortSignal?: AbortSignal
   ): Promise<void> {
     try {
-      // const url = `${this.baseEndpoint}${XRAY_TO_TEXT_ENDPOINTS.STREAM_REPORT}`;
-      const url = `localhost:5000/xray_to_text/stream-report`;
-
-      const headers: HeadersInit = {};
-      
-      // Uncomment when JWT is needed
-      // const token = await this.getToken();
-      // if (token) {
-      //   headers.Authorization = `Bearer ${token}`;
-      // }
-
-      const response = await fetch(url, {
+      const endpoint = `http://localhost:5000/xray_to_text/stream-report`;
+      const response = await fetch(endpoint, {
         method: 'POST',
-        headers,
         body: formData,
+        signal: abortSignal,
       });
 
       if (!response.ok) {
@@ -49,31 +40,46 @@ export class XrayToTextService extends BaseApiService {
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+      let isComplete = false;
 
-      while (true) {
+      while (!isComplete) {
         const { value, done } = await reader.read();
-        
         if (done) {
           onComplete();
           break;
         }
 
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
-        
+        buffer += decoder.decode(value, { stream: true });
+        // Împărțim buffer-ul pe linii, eliminăm spațiile în plus
+        const lines = buffer.split('\n').map(line => line.trim());
+        buffer = lines.pop() || '';
+
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
+          if (line.startsWith('data:')) {
+            // Folosim substring(5) pentru a obține textul după "data:"
+            const data = line.substring(5).trim();
             if (data === 'stream_complete') {
+              isComplete = true;
               onComplete();
               break;
             }
             onMessage(data);
+          } else if (line.startsWith('event:')) {
+            if (line === 'event: end') {
+              isComplete = true;
+              onComplete();
+              break;
+            }
           }
         }
       }
     } catch (err) {
-      onError(err instanceof Error ? err.message : String(err));
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        console.log('Request was aborted');
+      } else {
+        onError(err instanceof Error ? err.message : String(err));
+      }
     }
   }
 }

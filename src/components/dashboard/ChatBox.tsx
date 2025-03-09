@@ -1,74 +1,71 @@
 "use client"
-import React from "react"
-import { useState, useEffect } from "react"
-import { Button } from "../ui/button"
-import { Input } from "../ui/input"
-import { ScrollArea } from "../ui/scroll-area"
-import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar"
-import { Send, ChevronDown } from "lucide-react"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu"
-import { useXrayToTextService } from "../../services/api/endpoints/xrayToText/hooks/useXrayToTextService"
+import React, { useState, useEffect } from "react";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { ScrollArea } from "../ui/scroll-area";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { Send, ChevronDown } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
+import { useXrayToTextService } from "../../services/api/endpoints/xrayToText/hooks/useXrayToTextService";
 
 const models = [
   { name: "GPT-4", description: "Most capable model, best for complex tasks" },
   { name: "GPT-3.5", description: "Faster and more cost-effective" },
   { name: "Claude", description: "Specialized in medical analysis" },
-]
+];
 
 interface ChatBoxProps {
-  selectedFile: File | null
-}
-
-interface ChatBoxProps {
-  selectedFile: File | null
+  selectedFile: File | null;
 }
 
 const ChatBox: React.FC<ChatBoxProps> = ({ selectedFile }) => {
-  const [messages, setMessages] = useState<{ text: string; from: "patient" | "llm" }[]>([])
-  const [input, setInput] = useState("")
-  const [selectedModel, setSelectedModel] = useState(models[0])
-  const { streamData, loading, streamReport } = useXrayToTextService()
-  const [isStreaming, setIsStreaming] = useState(false)
+  const [messages, setMessages] = useState<{ text: string; from: "patient" | "llm" }[]>([]);
+  const [input, setInput] = useState("");
+  const [selectedModel, setSelectedModel] = useState(models[0]);
+  const { streamData, loading, streamReport } = useXrayToTextService();
+  const [isStreaming, setIsStreaming] = useState(false);
 
   useEffect(() => {
-    if (streamData.length > 0) {
-      setMessages(prev => {
-        const lastMessage = prev[prev.length - 1]
-        if (lastMessage?.from === 'llm') {
-          return [...prev.slice(0, -1), { text: lastMessage.text + streamData[streamData.length - 1], from: 'llm' }]
-        }
-        return [...prev, { text: streamData.join(''), from: 'llm' }]
-      })
+    console.log("Updated streamData:", streamData); // 🔴 LOGHEAZĂ ORICE MODIFICARE A STREAMULUI
+    if (streamData) {
+        setMessages(prev => {
+            const lastMessage = prev[prev.length - 1];
+            if (lastMessage?.from === 'llm') {
+                return [...prev.slice(0, -1), { text: streamData, from: 'llm' }];
+            }
+            return [...prev, { text: streamData, from: 'llm' }];
+        });
     }
-  }, [streamData])
+}, [streamData]);
+
 
   const sendMessage = async () => {
-    if ((!input.trim() && !selectedFile) || loading) return
+    if ((!input.trim() && !selectedFile) || loading) return;
 
-    // Add user message
-    setMessages(prev => [...prev, { text: input, from: "patient" }])
-    
-    // Create form data
-    const formData = new FormData()
+    // Adaugă mesajul pacientului
+    setMessages(prev => [...prev, { text: input, from: "patient" }]);
+
+    // Crează FormData cu fișierul și textul
+    const formData = new FormData();
     if (selectedFile) {
-      formData.append('file', selectedFile)
+      formData.append('file', selectedFile);
     }
-    formData.append('indication', input)
+    formData.append('indication', input);
 
-    // Add initial LLM message
-    setMessages(prev => [...prev, { text: '', from: 'llm' }])
+    // Adaugă un mesaj inițial gol pentru răspunsul LLM
+    setMessages(prev => [...prev, { text: '', from: 'llm' }]);
 
     try {
-      setIsStreaming(true)
-      await streamReport(formData)
+      setIsStreaming(true);
+      await streamReport(formData);
     } catch (error) {
-      console.error('Stream error:', error)
-      setMessages(prev => [...prev.slice(0, -1), { text: "Error generating response", from: 'llm' }])
+      console.error('Stream error:', error);
+      setMessages(prev => [...prev.slice(0, -1), { text: "Error generating response", from: 'llm' }]);
     } finally {
-      setIsStreaming(false)
-      setInput("")
+      setIsStreaming(false);
+      setInput("");
     }
-  }
+  };
 
   return (
     <div className="flex flex-col h-full bg-white">
@@ -119,8 +116,8 @@ const ChatBox: React.FC<ChatBoxProps> = ({ selectedFile }) => {
       <div className="p-4 border-t border-border">
         <form
           onSubmit={(e) => {
-            e.preventDefault()
-            sendMessage()
+            e.preventDefault();
+            sendMessage();
           }}
           className="flex gap-2"
         >
@@ -129,15 +126,15 @@ const ChatBox: React.FC<ChatBoxProps> = ({ selectedFile }) => {
             onChange={(e) => setInput(e.target.value)}
             placeholder="Message the doctor..."
             className="flex-1"
+            disabled={isStreaming}
           />
-          <Button className="bg-black" type="submit" size="icon">
+          <Button className="bg-black" type="submit" size="icon" disabled={isStreaming || (!input.trim() && !selectedFile)}>
             <Send className="h-4 w-4 text-white" />
           </Button>
         </form>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default ChatBox
-
+export default ChatBox;

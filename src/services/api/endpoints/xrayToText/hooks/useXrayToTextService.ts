@@ -1,8 +1,6 @@
-
 // hooks/useXrayToTextService.ts
-import { useRef, useState, useEffect, useCallback} from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { XrayToTextService } from '../XrayToTextService';
-import { XrayToTextReport } from '../types/xrayToText.types';
 
 export const useXrayToTextService = () => {
   const getToken = async (): Promise<string | null> => {
@@ -12,11 +10,61 @@ export const useXrayToTextService = () => {
 
   const serviceRef = useRef(new XrayToTextService(getToken));
   const [report, setReport] = useState<string | null>(null);
-  const [streamData, setStreamData] = useState<string[]>([]);
+  const [streamData, setStreamData] = useState<string>('');  
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  const generateReport = async (formData: FormData): Promise<void> => {
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
+
+  const streamReport = useCallback(async (formData: FormData) => {
+    abortControllerRef.current = new AbortController();
+    const abortSignal = abortControllerRef.current.signal;
+
+    setLoading(true);
+    setStreamData('');  
+    setError(null);
+
+    try {
+        await serviceRef.current.streamReport(
+            formData,
+            (msg: string) => {
+                if (!abortSignal.aborted) {
+                    console.log("Message received:", msg); // 🔴 LOGHEAZĂ MESAJELE PRIMITE
+                    setStreamData(prev => prev + ' ' + msg);
+                }
+            },
+            () => {
+                console.log("Stream complete"); // 🔴 LOGHEAZĂ CÂND SE TERMINĂ STREAM-UL
+                if (!abortSignal.aborted) {
+                    setLoading(false);
+                }
+            },
+            (err: string) => {
+                console.error("Stream error:", err); // 🔴 LOGHEAZĂ ERORILE
+                if (!abortSignal.aborted) {
+                    setLoading(false);
+                    setError(err);
+                }
+            },
+            abortSignal
+        );
+    } catch (error) {
+        console.error("Unexpected stream error:", error);
+        if (!abortSignal.aborted) {
+            setLoading(false);
+            setError(error instanceof Error ? error.message : 'Unknown error');
+        }
+    }
+}, []);
+
+
+  const generateReport = useCallback(async (formData: FormData): Promise<void> => {
     try {
       setLoading(true);
       setError(null);
@@ -30,38 +78,15 @@ export const useXrayToTextService = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const streamReport = useCallback(async (formData: FormData) => {
-    setLoading(true);
-    setStreamData([]);
-    setError(null);
-    
-    try {
-      await serviceRef.current.streamReport(
-        formData,
-        (msg: string) => {
-          setStreamData(prev => [...prev, msg]);
-        },
-        () => {
-          setLoading(false);
-        },
-        (err: string) => {
-          setLoading(false);
-          setError(err);
-        }
-      );
-    } catch (error) {
-      setLoading(false);
-      setError(error instanceof Error ? error.message : 'Unknown error');
-    }
   }, []);
 
+  // Reset state on unmount
   useEffect(() => {
     return () => {
-      setStreamData([]);
+      setStreamData('');
       setReport(null);
       setError(null);
+      setLoading(false);
     };
   }, []);
 
